@@ -1,0 +1,510 @@
+=========================================================================================================================
+Steps to install Jenkins:
+
+yum install fontconfig java-11-openjdk
+or
+sudo amazon-linux-extras install java-openjdk11
+
+sudo wget -O /etc/yum.repos.d/jenkins.repo https://pkg.jenkins.io/redhat-stable/jenkins.repo
+sudo rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io.key
+  
+
+yum install jenkins
+
+service jenkins status
+service jenkins start  
+
+cat /var/lib/jenkins/secrets/initialAdminPassword
+
+/var/lib/jenkins/workspace/pullcodefromgithub
+-------------------
+Ubnutu:16.04 (default java 11 will install)
+
+#!/bin/bash
+apt update;sudo apt install default-jdk -y
+
+wget -q -O - https://pkg.jenkins.io/debian-stable/jenkins.io.key | sudo apt-key add - 
+sudo sh -c 'echo deb http://pkg.jenkins.io/debian-stable binary/ > /etc/apt/sources.list.d/jenkins.list'
+sleep 120
+sudo apt update
+sudo apt install jenkins -y
+
+sudo systemctl start jenkins
+
+#login to jenkins now
+
+=========================================================================================================================
+GITHUB:
+
+https://github.com/nitinmanzire/hello-world
+
+========================================================================================================================
+
+
+************
+Maven
+************
+Download Maven from google: 
+
+On EC2 instance:
+
+wget https://dlcdn.apache.org/maven/maven-3/3.8.5/binaries/apache-maven-3.8.5-bin.tar.gz
+
+https://maven.apache.org/install.html
+
+#install maven plugin on jenkins
+
+set up maven
+set env variable
+java_home M2 M2_home
+
+[root@jenkinserver ~]# vi .bash_profile
+
+
+M2_HOME=/opt/apache-maven-3.8.5
+M2=/opt/apache-maven-3.8.5/bin
+
+JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
+
+
+PATH=$PATH:$HOME/bin:$JAVA_HOME:$M2_HOME:$M2
+
+export PATH
+
+[root@jenkinserver ~]# echo $PATH
+/sbin:/bin:/usr/sbin:/usr/bin
+[root@jenkinserver ~]# source .bash_profile
+[root@jenkinserver ~]# echo $PATH
+/sbin:/bin:/usr/sbin:/usr/bin:/root/bin:/usr/lib/jvm/java-11-openjdk-11.0.13.0.8-1.amzn2.0.3.x86_64:/opt/maven:/opt/maven/bin
+
+
+==============================================================================================================================
+TOMCAT server 
+
+3.111.245.73
+
+
+Setup EC2 instance
+install java
+configure tomcat
+start and access by port 8080
+
+amazon-linux-extras install java-openjdk11
+
+
+
+wget https://dlcdn.apache.org/tomcat/tomcat-9/v9.0.60/bin/apache-tomcat-9.0.60.tar.gz
+
+https://dlcdn.apache.org/tomcat/tomcat-8/v8.5.78/bin/apache-tomcat-8.5.78.tar.gz
+
+[root@ip-172-31-35-203 bin]# pwd
+/opt/tomcat/bin
+[root@ip-172-31-35-203 bin]# ./startup.sh
+
+//server:8080
+
+comment below file 
+/opt/tomcat/webapps/examples/META-INF/context.xml
+/opt/tomcat/webapps/host-manager/META-INF/context.xml
+
+conf/tomcat-users.xml file
+
+
+<role rolename="manager-gui"/>
+<role rolename="manager-script"/>
+<role rolename="manager-jmx"/>
+<role rolename="manager-status"/>
+<user username="admin" password="admin" roles="manager-gui, manager-script, manager-jmx, manager-status"/>
+<user username="deployer" password="deployer" roles="manager-script"/>
+<user username="tomcat" password="s3cret" roles="manager-gui"/>
+ 
+ 
+[root@ip-172-31-35-203 opt]# ln -s /opt/tomcat/bin/shutdown.sh /usr/bin/tomcatdown
+[root@ip-172-31-35-203 opt]# ln -s /opt/tomcat/bin/startup.sh /usr/bin/tomcatup
+
+
+Intergarte tomcat with jenkins 
+
+Deply to container plugin and configure
+ 
+
+ 
+
+======================================================================================
+
+
+
+pipeline {
+    agent any
+    environment {
+        PATH ="/opt/apache-maven-3.8.5/bin:$PATH"
+        
+    }    
+    stages {
+        stage('Git checkout') {
+            steps {
+                git 'https://github.com/nitinmanzire/hello-world'
+            }
+        }
+        
+        stage ('Build MVN') {
+            steps {
+                sh "mvn clean package"
+                
+             
+            }
+        }
+		
+		stage ('Deploy on tomcat'){
+            steps {
+                sshagent(['tomcat_new']) {
+            
+             sh """
+              scp -o StrictHostKeyChecking=no /var/lib/jenkins/workspace/pipe3_deploy_tomcat/webapp/target/webapp.war ec2-user@172.31.22.208:/opt/tomcat8/webapps
+              
+              ssh ec2-user@172.31.22.208 /opt/tomcat8/bin/shutdown.sh
+              ssh ec2-user@172.31.22.208 /opt/tomcat8/bin/startup.sh
+              
+              """
+			  }
+			}
+        }			
+    }
+ }
+
+===
+
+properties([pipelineTriggers([githubPush()])])
+
+=============================================================
+
+#############################################################################################
+Minikube istallation steps:
+
+ec2-> ubuntu 18.4->all traffic allow-> login
+
+sudo su
+sudo apt update && apt -y install docker.io
+
+
+#####install Kubectl
+
+curl -LO https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl
+
+
+chmod +x ./kubectl && sudo mv ./kubectl /usr/local/bin/kubectl
+
+apt install conntrack
+
+kubectl version
+
+###################################3
+##Install minikube
+
+wget https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
+sudo cp minikube-linux-amd64 /usr/local/bin/minikube
+sudo chmod 755 /usr/local/bin/minikube
+minikube version
+minikube start --vm-driver=none
+minikube status
+
+
+kubectl get nodes
+
+
+Create pod by yml file.
+*************************************************
+vi pod.yml
+
+kind: Pod                              
+apiVersion: v1                     
+metadata:                           
+  name: testpod                  
+spec:                                    
+  containers:                      
+    - name: c00                     
+      image: ubuntu              
+      command: ["/bin/bash", "-c", "while true; do echo Hello-Bhupinder; sleep 5 ; done"]
+  restartPolicy: Never         # Defaults to Always
+
+
+
+*****************************************************
+kubectl apply -f pod.yml
+
+
+# kubectl get pods -o wide
+NAME      READY   STATUS    RESTARTS   AGE   IP           NODE             NOMINATED NODE   READINESS GATES
+testpod   1/1     Running   0          85s   172.17.0.3   ip-172-31-19-7   <none>           <none>
+
+
+kubectl describe pod/testpod
+
+kubectl logs -f testpod
+
+kubectl logs -f testpod -c c00   ##############to check when multiple containers
+
+kubectl delete pod testpod
+
+=============
+Annotations:
+
+kind: Pod
+apiVersion: v1
+metadata:
+  name: testpod
+  annotations:
+      description: mera pahala pod creation by pranavi
+spec:
+  containers:
+    - name: c00
+      image: ubuntu
+      command: ["/bin/bash", "-c", "while true; do echo Hello-Bhupinder; sleep 5 ; done"]
+  restartPolicy: Never         # Defaults to Always
+--------------------------
+
+
+
+MULTI CONTAINER POD ENVIRONMENT
+
+kind: Pod
+apiVersion: v1
+metadata:
+  name: testpod2
+spec:
+  containers:
+    - name: c00
+      image: ubuntu
+      command: ["/bin/bash", "-c", "while true; do echo Nitin Manzire; sleep 5 ; done"]
+    - name: c01
+      image: ubuntu
+      command: ["/bin/bash", "-c", "while true; do echo Gauri Manzire; sleep 5 ; done"]
+
+
+
+*********************************************************************************************************************************
+POD ENVIRONMENT  VARIABLES
+
+
+kind: Pod
+apiVersion: v1
+metadata:
+  name: environments
+spec:
+  containers:
+    - name: c00
+      image: ubuntu
+      command: ["/bin/bash", "-c", "while true; do echo nitin; sleep 5 ; done"]
+      env:                        # List of environment variables to be used inside the pod
+      - name: MYNAME
+        value: NitinM
+
+************************************************************************************************************************************
+POD WITH PORTS
+
+kind: Pod
+apiVersion: v1
+metadata:
+  name: testpod4
+spec:
+  containers:
+    - name: c00
+      image: httpd
+      ports:
+       - containerPort: 80  
+
+*********************END**************************************************
+
+
+EXAMPLE OF LABELS
+
+
+kind: Pod
+apiVersion: v1
+metadata:
+  name: punepod
+  labels:                                                   
+    env: development
+    class: pods
+spec:
+    containers:
+       - name: c00
+         image: ubuntu
+         command: ["/bin/bash", "-c", "while true; do echo Hello-Nitin; sleep 5 ; done"]
+
+---
+
+NODE SELECTOR EXAMPLE
+
+kind: Pod
+apiVersion: v1
+metadata:
+  name: nodelabels
+  labels:
+    env: development
+spec:
+    containers:
+       - name: c00
+         image: ubuntu
+         command: ["/bin/bash", "-c", "while true; do echo Hello-Nitin; sleep 5 ; done"]
+    nodeSelector:                                         
+       hardware: t2-medium
+
+
+
+--
+
+
+
+
+EXAMPLE OF REPLICATION CONTROLLER
+
+kind: ReplicationController               
+apiVersion: v1
+metadata:
+  name: myreplica
+spec:
+  replicas: 2            
+  selector:        
+    myname: Bhupinder Rajput                             
+  template:                
+    metadata:
+      name: testpod6
+      labels:            
+        myname: Bhupinder
+    spec:
+     containers:
+       - name: c00
+         image: ubuntu
+         command: ["/bin/bash", "-c", "while true; do echo Hello-Bhupinder; sleep 5 ; done"]
+
+
+****************************************************************************************************************
+EXAMPLE OF REPLICA SET
+
+
+kind: ReplicaSet                                    
+apiVersion: apps/v1                            
+metadata:
+  name: myrs
+spec:
+  replicas: 2  
+  selector:                  
+    matchExpressions:                             # these must match the labels
+      - {key: myname, operator: In, values: [Bhupinder, Bupinder, Bhopendra]}
+      - {key: env, operator: NotIn, values: [production]}
+  template:      
+    metadata:
+      name: testpod7
+      labels:              
+        myname: Bhupinder
+    spec:
+     containers:
+       - name: c00
+         image: ubuntu
+         command: ["/bin/bash", "-c", "while true; do echo Technical-Guftgu; sleep 5 ; done"]
+
+***************************************END******************************
+Deployment:
+
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+   name: mydeployments
+spec:
+   replicas: 2
+   selector:     
+    matchLabels:
+     name: deployment
+   template:
+     metadata:
+       name: testpod
+       labels:
+         name: deployment
+     spec:
+      containers:
+        - name: c00
+          image: ubuntu
+          command: ["/bin/bash", "-c", "while true; do echo Nitin; sleep 5; done"]
+
+
+
+-------------
+networking:
+
+kind: Pod
+apiVersion: v1
+metadata:
+  name: testpod
+spec:
+  containers:
+    - name: c00
+      image: ubuntu
+      command: ["/bin/bash", "-c", "while true; do echo Hello-Bhupinder; sleep 5 ; done"]
+    - name: c01
+      image: httpd
+      ports:
+       - containerPort: 80
+
+
+===
+
+kubectl create secret docker-registry regcred --docker-server=https://index.docker.io/v1/ --docker-username=nitinmanzire --docker-password=kaveri@1234 --docker-email=nitinmanzire@gmail.com
+
+kubectl create secret generic regcred --from-file=.dockerconfigjson=/var/lib/jenkins/.docker/config.json --type=kubernetes.io/dockerconfigjson
+
+==
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: springboot-app
+  name: springboot-app
+spec:
+  replicas: 4
+  selector:
+    matchLabels:
+      app: springboot-app
+  template:
+    metadata:
+      labels:
+        app: springboot-app
+    spec:
+      containers:
+      - name: my-springboot-app
+        image: 211223789150.dkr.ecr.us-east-2.amazonaws.com/my-docker-repo:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8085
+          name: http
+          protocol: TCP
+# service type loadbalancer       
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: springboot-app
+    k8s-app: springboot-app
+  name: springboot-app
+spec:
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 8085
+  type: LoadBalancer
+  selector:
+    app: springboot-app
+
+
+
+
+
+Just create an App Password for your account and use that password.
+
+Steps to create password:
+
+Go to your account settings (https://myaccount.google.com/) -->> Security -->> Under signing in to Google -->> App Password -->> Enter your credentials to login to your account -->> Select 'App' and 'Device' -->> Generate.
+
+Copy and paste the password somewh
